@@ -3,7 +3,6 @@ Hamming Error Correction Code
 Author: David Yue
 
 Following the intuition described here: https://www.youtube.com/watch?v=X8jsijhllIA
-
 '''
 
 class TwoBitError(Exception):
@@ -30,7 +29,7 @@ def redundant_bit_positions(n_bits: int):
     return positions
 
 
-def hamming_encode(bits: list[bool]):
+def hamming_encode(bits: list[bool], extended=True):
 
     pos = redundant_bit_positions(len(bits))
 
@@ -60,32 +59,15 @@ def hamming_encode(bits: list[bool]):
         bit_idx += 1
         encoded_idx += 1
 
-    for i in range(1, len(encoded_message)):
-        encoded_message[0] = xor(encoded_message[i], encoded_message[0])
-
+    if extended:
+        for i in range(1, len(encoded_message)):
+            encoded_message[0] = xor(encoded_message[i], encoded_message[0])
+    else:
+        encoded_message = encoded_message[1:]
     return encoded_message
 
 
-def hamming_decode(bits: list[bool]):
-    block_parity = False
-
-    for i in range(1, len(bits)):
-        block_parity = xor(bits[i], block_parity)
-
-    if block_parity != bits[0]:
-        raise TwoBitError("A 2 bit error has been detected!")
-
-    error_position = 0
-
-    for i, b in enumerate(bits):
-
-        if b:
-            error_position ^= i
-
-    if error_position != 0:
-
-        bits[error_position] = not bits[error_position]
-
+def strip_error_correction_bits(bits: list[bool]):
     positions = []
     r = 0
     while 2**r < len(bits):
@@ -101,9 +83,29 @@ def hamming_decode(bits: list[bool]):
             continue
 
         decoded_message.append(bits[i])
-
+    
     return decoded_message
 
+def hamming_decode(bits: list[bool], extended=True):
+    block_parity = False
 
-encoded_message = hamming_encode([True, False, False, False])
-print(hamming_decode(encoded_message))
+    if extended:
+        for i in range(1, len(bits)):
+            block_parity = xor(bits[i], block_parity)
+
+        if block_parity != bits[0]:
+            return strip_error_correction_bits(bits)
+    else:
+        bits = [False] + bits
+        
+    error_position = 0
+
+    for i, b in enumerate(bits):
+
+        if b:
+            error_position ^= i
+
+    if error_position != 0 and error_position < len(bits):
+        bits[error_position] = not bits[error_position]
+
+    return strip_error_correction_bits(bits)
